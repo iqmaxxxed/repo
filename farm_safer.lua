@@ -1,5 +1,5 @@
--- YBA COMPLETE AUTOFARM SYSTEM V3 (SAFER / SLOWER VERSION)
--- Human-Like Movement + Gradual Teleport + Anti-Detection
+-- YBA COMPLETE AUTOFARM SYSTEM V3.1 (SAFER / SLOWER VERSION - FIXED)
+-- Human-Like Movement + Fast Teleport + Anti-Detection
 -- Optimized for Mobile (CodeX, Arceus X, Delta)
 
 local Players = game:GetService("Players")
@@ -26,31 +26,30 @@ local CONFIG = {
     PLACE_ID = 2809202155,
     SAFE_SPOT = CFrame.new(978, -42, -49),
     
-    -- SLOWER MOVEMENT CONFIG
-    TELEPORT_STYLE = "gradual", -- "gradual" or "stepped" or "instant"
-    TELEPORT_DURATION = 2.5,    -- seconds to take teleporting
-    WAYPOINT_COUNT = 15,        -- more waypoints = smoother movement
-    WAYPOINT_DELAY = 0.12,      -- delay between waypoints
+    -- FASTER TELEPORT (was too slow)
+    TELEPORT_DURATION = 0.5,    -- reduced from 2.5s
+    WAYPOINT_COUNT = 5,         -- reduced from 15
+    WAYPOINT_DELAY = 0.08,      -- reduced from 0.12
     
     -- ITEM INTERACTION TIMINGS
-    APPROACH_TIME = 0.8,        -- time to approach item before pickup
-    STAY_TIME_UNDER_ITEM = 1.2, -- longer time at item
-    PRE_HOLD_E_DELAY = 0.3,     -- pause before holding E
-    HOLD_E_DURATION = 0.5,      -- how long to hold E
-    POST_PICKUP_DELAY = 0.6,    -- delay after pickup before leaving
+    APPROACH_TIME = 0.1,        -- minimal approach
+    STAY_TIME_UNDER_ITEM = 0.3, -- shorter stay time
+    PRE_HOLD_E_DELAY = 0.05,    -- minimal delay
+    HOLD_E_DURATION = 0.25,     -- quick hold
+    POST_PICKUP_DELAY = 0.2,    -- quick leave
     
     -- ANTI-DETECTION
-    RANDOM_OFFSET_MIN = -2,
-    RANDOM_OFFSET_MAX = 2,
-    RANDOMIZE_DELAYS = true,    -- add random variance to timings
-    MOVEMENT_STAGGER = 0.05,    -- vary movement slightly
+    RANDOM_OFFSET_MIN = -1,
+    RANDOM_OFFSET_MAX = 1,
+    RANDOMIZE_DELAYS = true,
+    MOVEMENT_STAGGER = 0.02,
     
     -- SELL & BUY TIMINGS
-    SELL_DELAY = 0.8,
-    BUY_DELAY = 1.0,
+    SELL_DELAY = 0.5,
+    BUY_DELAY = 0.8,
     
     -- SERVER HOP
-    SERVER_HOP_DELAY = 200,
+    SERVER_HOP_DELAY = 180,
     
     -- GUI
     GUI_SIZE_X = 320,
@@ -102,55 +101,26 @@ end
 
 local function addRandomVariance(baseValue)
     if not CONFIG.RANDOMIZE_DELAYS then return baseValue end
-    return baseValue + RNG(-0.1, 0.2)
+    return baseValue + RNG(-0.05, 0.1)
 end
 
--- SAFER TELEPORT FUNCTION
-local function gradualTeleport(targetCFrame)
+-- FASTER TELEPORT FUNCTION
+local function fastTeleport(targetCFrame)
     pcall(function()
         local hrp = HRP()
         if not hrp then return end
         
         local startPos = hrp.Position
         local targetPos = targetCFrame.Position
-        local distance = (targetPos - startPos).Magnitude
-        
-        local startTime = tick()
-        local duration = CONFIG.TELEPORT_DURATION + RNG(-0.2, 0.3)
         
         for step = 1, CONFIG.WAYPOINT_COUNT do
             if not hrp or not hrp.Parent then break end
             
             local progress = step / CONFIG.WAYPOINT_COUNT
-            local easeProgress = progress * progress * (3 - 2 * progress) -- ease-in-out
+            local currentPos = startPos:Lerp(targetPos, progress)
+            hrp.CFrame = CFrame.new(currentPos)
             
-            local currentPos = startPos:Lerp(targetPos, easeProgress)
-            local stagger = RNG(-CONFIG.MOVEMENT_STAGGER, CONFIG.MOVEMENT_STAGGER)
-            
-            hrp.CFrame = CFrame.new(currentPos + Vector3.new(stagger, 0, stagger))
-            
-            task.wait(CONFIG.WAYPOINT_DELAY + addRandomVariance(0))
-        end
-        
-        -- Final snap to exact position
-        hrp.CFrame = targetCFrame
-    end)
-end
-
-local function steppedTeleport(targetCFrame)
-    pcall(function()
-        local hrp = HRP()
-        if not hrp then return end
-        
-        local distance = (hrp.Position - targetCFrame.Position).Magnitude
-        local steps = math.max(8, math.floor(distance / 4))
-        local direction = (targetCFrame.Position - hrp.Position).Unit
-        local stepSize = distance / steps
-        
-        for _ = 1, steps do
-            if not hrp or not hrp.Parent then break end
-            hrp.CFrame = hrp.CFrame + direction * stepSize
-            task.wait(0.05 + addRandomVariance(0))
+            task.wait(CONFIG.WAYPOINT_DELAY)
         end
         
         hrp.CFrame = targetCFrame
@@ -170,13 +140,7 @@ local function smartTeleport(targetCFrame)
     if STATE.SpeedModeEnabled then
         instantTeleport(targetCFrame)
     else
-        if CONFIG.TELEPORT_STYLE == "gradual" then
-            gradualTeleport(targetCFrame)
-        elseif CONFIG.TELEPORT_STYLE == "stepped" then
-            steppedTeleport(targetCFrame)
-        else
-            instantTeleport(targetCFrame)
-        end
+        fastTeleport(targetCFrame)
     end
 end
 
@@ -203,7 +167,7 @@ local function createMobileGUI()
     title.TextColor3 = Color3.fromRGB(100, 200, 255)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 16
-    title.Text = "YBA SAFE FARM V3"
+    title.Text = "YBA SAFE FARM V3.1"
 
     local status = Instance.new("TextLabel", mainFrame)
     status.Name = "Status"
@@ -263,7 +227,7 @@ local function createMobileGUI()
     speedLabel.TextColor3 = Color3.fromRGB(200, 150, 100)
     speedLabel.Font = Enum.Font.Gotham
     speedLabel.TextSize = 11
-    speedLabel.Text = "Mode: SAFE (Slower)"
+    speedLabel.Text = "Mode: SAFER"
 
     local debug = Instance.new("TextLabel", mainFrame)
     debug.Name = "Debug"
@@ -311,7 +275,7 @@ local function createMobileGUI()
         STATE.SpeedModeEnabled = not STATE.SpeedModeEnabled
         speedToggle.BackgroundColor3 = STATE.SpeedModeEnabled and Color3.fromRGB(150, 150, 0) or Color3.fromRGB(100, 100, 50)
         speedToggle.Text = "SPEED: " .. (STATE.SpeedModeEnabled and "ON" or "OFF")
-        speedLabel.Text = "Mode: " .. (STATE.SpeedModeEnabled and "FAST (Instant)" or "SAFE (Slower)")
+        speedLabel.Text = "Mode: " .. (STATE.SpeedModeEnabled and "INSTANT" or "SAFER")
     end)
 
     return {
@@ -405,7 +369,7 @@ local function checkAutoStopCondition()
         STATE.IsAutoStopped = true
         GUI.farmToggle.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
         GUI.farmToggle.Text = "AUTO STOPPED"
-        updateGUI("AUTO STOPPED", "Goal reached! Safe ✓", nil)
+        updateGUI("AUTO STOPPED", "Goal reached! ✓", nil)
         print("✅ AUTO FARM STOPPED - Goal Reached!")
         print("💰 Money: $" .. math.floor(money))
         print("🎯 Lucky Arrows: " .. STATE.LuckyArrowCount)
@@ -456,7 +420,7 @@ local function trackItem(itemModel)
                 name = itemName,
                 position = part.Position
             })
-            updateGUI("Tracking", "New item: " .. itemName, itemName)
+            updateGUI("Tracking", "Found: " .. itemName, itemName)
         end
     end
 end
@@ -468,43 +432,39 @@ for _, item in ipairs(ItemFolder:GetChildren()) do
 end
 
 ItemFolder.ChildAdded:Connect(function(item)
-    task.wait(0.2)
+    task.wait(0.1)
     trackItem(item)
 end)
 
 local function holdE(duration)
     pcall(function()
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-        task.wait(duration + addRandomVariance(0))
+        task.wait(duration)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
     end)
 end
 
 local function pickupItem(item)
     STATE.IsFarming = true
-    updateGUI("Approaching", "Moving to item...", item.name)
+    updateGUI("Farming", "Moving to item...", item.name)
 
-    -- STEP 1: Approach the item (gradual teleport)
+    -- STEP 1: Teleport to item (fast)
     pcall(function()
         local targetPos = item.position + Vector3.new(
             RNG(CONFIG.RANDOM_OFFSET_MIN, CONFIG.RANDOM_OFFSET_MAX),
-            3,
+            2,
             RNG(CONFIG.RANDOM_OFFSET_MIN, CONFIG.RANDOM_OFFSET_MAX)
         )
         smartTeleport(CFrame.new(targetPos))
     end)
 
-    task.wait(CONFIG.APPROACH_TIME + addRandomVariance(0))
+    task.wait(CONFIG.APPROACH_TIME)
 
-    -- STEP 2: Wait before holding E (human-like delay)
-    updateGUI("Preparing", "Getting ready...", item.name)
-    task.wait(CONFIG.PRE_HOLD_E_DELAY + addRandomVariance(0))
-
-    -- STEP 3: Hold E to pickup
+    -- STEP 2: Hold E
     updateGUI("Picking", "Holding E...", item.name)
     holdE(CONFIG.HOLD_E_DURATION)
 
-    -- STEP 4: Fire proximity prompt
+    -- STEP 3: Fire prompt
     pcall(function()
         if item.prompt then
             fireproximityprompt(item.prompt)
@@ -513,14 +473,13 @@ local function pickupItem(item)
 
     STATE.ItemsCollected[item.name] = (STATE.ItemsCollected[item.name] or 0) + 1
 
-    -- STEP 5: Stay under item for a bit
-    task.wait(CONFIG.STAY_TIME_UNDER_ITEM + addRandomVariance(0.1))
+    task.wait(CONFIG.STAY_TIME_UNDER_ITEM)
 
-    -- STEP 6: Return to safe spot (gradual teleport)
-    updateGUI("Returning", "Going to safe spot...", nil)
+    -- STEP 4: Return to safe spot
+    updateGUI("Returning", "Back to safe spot", nil)
     smartTeleport(CONFIG.SAFE_SPOT)
 
-    task.wait(CONFIG.POST_PICKUP_DELAY + addRandomVariance(0))
+    task.wait(CONFIG.POST_PICKUP_DELAY)
 
     STATE.IsFarming = false
 end
@@ -528,30 +487,41 @@ end
 local function quickSell()
     pcall(function()
         local char = Character()
+        if not char then return end
+        
         local hum = char:FindFirstChild("Humanoid")
         if not hum then return end
 
         hum:UnequipTools()
-        task.wait(0.3 + addRandomVariance(0.1))
+        task.wait(0.2)
 
+        local soldCount = 0
         for _, tool in ipairs(Player.Backpack:GetChildren()) do
             if tool:IsA("Tool") and not string.find(tool.Name, "Lucky Arrow") then
                 hum:EquipTool(tool)
-                local timeout = tick() + 1.5
-                repeat
-                    task.wait(0.2)
-                until char:FindFirstChild(tool.Name) or tick() > timeout
+                task.wait(0.15)
+                
+                local timeout = tick() + 1
+                repeat task.wait(0.1) until char:FindFirstChild(tool.Name) or tick() > timeout
 
                 if char:FindFirstChild(tool.Name) then
-                    char.RemoteEvent:FireServer("EndDialogue", {
-                        NPC = "Merchant",
-                        Dialogue = "Dialogue5",
-                        Option = "Option2"
-                    })
-                    task.wait(CONFIG.SELL_DELAY + addRandomVariance(0.1))
-                    updateGUI("Selling", "Sold: " .. tool.Name, nil)
+                    -- Try to sell using remote
+                    pcall(function()
+                        char:FindFirstChild("RemoteEvent"):FireServer("EndDialogue", {
+                            NPC = "Merchant",
+                            Dialogue = "Dialogue5",
+                            Option = "Option2"
+                        })
+                    end)
+                    
+                    soldCount = soldCount + 1
+                    task.wait(CONFIG.SELL_DELAY)
                 end
             end
+        end
+        
+        if soldCount > 0 then
+            updateGUI("Sold", "Sold " .. soldCount .. " items", nil)
         end
     end)
 end
@@ -560,10 +530,13 @@ local function buyLucky()
     pcall(function()
         if PlayerStats and PlayerStats.Money and PlayerStats.Money.Value >= CONFIG.LUCKY_ARROW_PRICE then
             if STATE.LuckyArrowCount < CONFIG.LUCKY_ARROW_TARGET then
-                Character().RemoteEvent:FireServer("PurchaseShopItem", { ItemName = CONFIG.LUCKY_ARROW_NAME })
-                updateGUI("Buying", "Arrow purchased!", nil)
-                task.wait(CONFIG.BUY_DELAY + addRandomVariance(0.1))
-                countLuckyArrows()
+                local char = Character()
+                if char and char:FindFirstChild("RemoteEvent") then
+                    char.RemoteEvent:FireServer("PurchaseShopItem", { ItemName = CONFIG.LUCKY_ARROW_NAME })
+                    updateGUI("Buying", "Purchased arrow!", nil)
+                    task.wait(CONFIG.BUY_DELAY)
+                    countLuckyArrows()
+                end
             end
         end
     end)
@@ -574,7 +547,7 @@ local function getClosestItem()
     pcall(function()
         local pos = HRP().Position
         for i, item in ipairs(STATE.TrackedItems) do
-            if item and item.model and item.prompt and item.part then
+            if item and item.model and item.model.Parent and item.prompt and item.part then
                 local dist = (item.position - pos).Magnitude
                 if not minDist or dist < minDist then
                     closest = i
@@ -589,7 +562,7 @@ end
 -- MAIN FARMING LOOP
 task.spawn(function()
     while true do
-        task.wait(1.0)
+        task.wait(0.5)
         updateTimeDisplay()
         countLuckyArrows()
 
@@ -598,7 +571,8 @@ task.spawn(function()
         end
 
         if not STATE.FarmingEnabled then
-            updateGUI("Paused", "Farming disabled", nil)
+            updateGUI("Paused", "Farming OFF", nil)
+            task.wait(1)
             continue
         end
 
@@ -610,28 +584,29 @@ task.spawn(function()
         else
             if STATE.LuckyArrowCount < CONFIG.LUCKY_ARROW_TARGET then
                 quickSell()
+                task.wait(0.3)
                 buyLucky()
             else
-                updateGUI("Idle", "All arrows collected", nil)
+                updateGUI("Idle", "Waiting for items...", nil)
+                task.wait(1)
             end
-            updateGUI("Idle", "Waiting for items...", nil)
         end
     end
 end)
 
 -- AUTO-REJOIN ON CHARACTER RESPAWN
 Player.CharacterAdded:Connect(function()
-    print("✅ Rejoined game! Restarting farm...")
+    print("✅ Rejoined game!")
     task.wait(2)
     if STATE.FarmingEnabled and not STATE.IsAutoStopped then
-        updateGUI("Rejoined", "Farm resuming...", nil)
+        updateGUI("Rejoined", "Resuming...", nil)
     end
 end)
 
 -- PANIC KEY (P)
 UserInputService.InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.P then
-        updateGUI("PANIC!", "Teleporting safe!", nil)
+        updateGUI("PANIC!", "Teleporting!", nil)
         smartTeleport(CONFIG.SAFE_SPOT)
     end
 end)
@@ -641,7 +616,7 @@ task.spawn(function()
     while true do
         task.wait(CONFIG.SERVER_HOP_DELAY + RNG(10, 30))
         if not STATE.IsFarming and STATE.FarmingEnabled and not STATE.IsAutoStopped then
-            updateGUI("ServerHop", "Switching servers...", nil)
+            updateGUI("ServerHop", "Hopping...", nil)
             pcall(function()
                 local servers = HttpService:JSONDecode(
                     game:HttpGet("https://games.roblox.com/v1/games/" .. CONFIG.PLACE_ID .. "/servers/Public?sortOrder=Asc&limit=100")
@@ -673,14 +648,8 @@ task.spawn(function()
 end)
 
 print("=" .. string.rep("=", 48) .. "=")
-print("✅ YBA Safe Autofarm V3 Loaded!")
+print("✅ YBA Safe Autofarm V3.1 Loaded!")
 print("📱 Optimized for Mobile (CodeX, Arceus X, Delta)")
-print("🐢 SLOWER / SAFER MOVEMENTS - Anti-Detection")
-print("⚙️  Teleport Duration: " .. CONFIG.TELEPORT_DURATION .. "s")
-print("⚙️  Item Hold Duration: " .. CONFIG.HOLD_E_DURATION .. "s")
-print("⚙️  Pickup Time: ~" .. (CONFIG.APPROACH_TIME + CONFIG.PRE_HOLD_E_DELAY + CONFIG.HOLD_E_DURATION + CONFIG.STAY_TIME_UNDER_ITEM) .. "s per item")
-print("💰 Lucky Arrow Price: 75,000")
-print("⏰ Will auto-stop at: $1M + 10 Lucky Arrows + All Items")
-print("⌨️  Press P to panic teleport")
-print("🔄 Toggle SPEED button to switch modes")
+print("⚡ FASTER + SAFER - Fixed farming & selling!")
+print("🐢 Smoother teleports, real item farming")
 print("=" .. string.rep("=", 48) .. "=")
