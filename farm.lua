@@ -1,4 +1,4 @@
--- YBA COMPLETE AUTOFARM SYSTEM V2
+-- YBA COMPLETE AUTOFARM SYSTEM V2 (SLOWER / HUMAN-LIKE VERSION)
 -- Auto-Rejoin + Time Tracker + All Items Farm + Smart Stop
 -- Optimized for Mobile (CodeX, Arceus X, Delta)
 
@@ -22,24 +22,22 @@ end
 
 local PlayerStats = Player:WaitForChild("PlayerStats")
 
--- ==================== CONFIG ====================
 local CONFIG = {
     PLACE_ID = 2809202155,
     SAFE_SPOT = CFrame.new(978, -42, -49),
-    SERVER_HOP_DELAY = 105,
-    STAY_TIME_UNDER_ITEM = 0.5,
-    FAST_PICKUP_DELAY = 0.15,
-    NORMAL_PICKUP_DELAY = 0.25,
+    SERVER_HOP_DELAY = 180,
+    STAY_TIME_UNDER_ITEM = 0.8,
+    FAST_PICKUP_DELAY = 0.2,
+    NORMAL_PICKUP_DELAY = 0.4,
     GUI_SIZE_X = 320,
     GUI_SIZE_Y = 320,
     BUTTON_HEIGHT = 35,
-    MONEY_THRESHOLD = 1000000,  -- $1M stop point
+    MONEY_THRESHOLD = 1000000,
     LUCKY_ARROW_TARGET = 10,
     LUCKY_ARROW_PRICE = 75000,
     LUCKY_ARROW_NAME = "1x Lucky Arrow"
 }
 
--- ALL FARMABLE ITEMS WITH PRICES
 local FARMABLE_ITEMS = {
     { name = "Gold Coin", value = 120, maxCount = 999 },
     { name = "Mysterious Arrow", value = 200, maxCount = 999 },
@@ -55,7 +53,6 @@ local FARMABLE_ITEMS = {
     { name = "Pure Rokakaka", value = 1500, maxCount = 999 }
 }
 
--- STATE MANAGEMENT
 local STATE = {
     SpeedModeEnabled = false,
     FarmingEnabled = true,
@@ -64,15 +61,18 @@ local STATE = {
     ItemsCollected = {},
     StartTime = tick(),
     IsAutoStopped = false,
-    LuckyArrowCount = 0
+    LuckyArrowCount = 0,
+    RandomOffset = 0
 }
 
--- Initialize item collection tracker
 for _, item in ipairs(FARMABLE_ITEMS) do
     STATE.ItemsCollected[item.name] = 0
 end
 
--- ==================== MOBILE GUI ====================
+local function RNG(min, max)
+    return math.random() * (max - min) + min
+end
+
 local function createMobileGUI()
     local gui = Instance.new("ScreenGui", Player:WaitForChild("PlayerGui"))
     gui.Name = "YBA_Mobile_Farm_V2"
@@ -88,9 +88,7 @@ local function createMobileGUI()
     mainFrame.Active = true
     mainFrame.Draggable = true
 
-    -- Title
     local title = Instance.new("TextLabel", mainFrame)
-    title.Name = "Title"
     title.Size = UDim2.new(1, 0, 0, 30)
     title.Position = UDim2.new(0, 0, 0, 0)
     title.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
@@ -99,7 +97,6 @@ local function createMobileGUI()
     title.TextSize = 16
     title.Text = "YBA COMPLETE FARM"
 
-    -- Status
     local status = Instance.new("TextLabel", mainFrame)
     status.Name = "Status"
     status.Size = UDim2.new(1, -10, 0, 20)
@@ -110,7 +107,6 @@ local function createMobileGUI()
     status.TextSize = 12
     status.Text = "Status: Idle"
 
-    -- Money Display
     local money = Instance.new("TextLabel", mainFrame)
     money.Name = "Money"
     money.Size = UDim2.new(1, -10, 0, 18)
@@ -121,7 +117,6 @@ local function createMobileGUI()
     money.TextSize = 11
     money.Text = "Money: $0"
 
-    -- Time Tracker
     local timeLabel = Instance.new("TextLabel", mainFrame)
     timeLabel.Name = "TimeLabel"
     timeLabel.Size = UDim2.new(1, -10, 0, 18)
@@ -132,7 +127,6 @@ local function createMobileGUI()
     timeLabel.TextSize = 11
     timeLabel.Text = "Time: 0h 0m 0s"
 
-    -- Lucky Arrow Counter
     local luckyCounter = Instance.new("TextLabel", mainFrame)
     luckyCounter.Name = "LuckyCounter"
     luckyCounter.Size = UDim2.new(1, -10, 0, 18)
@@ -143,7 +137,6 @@ local function createMobileGUI()
     luckyCounter.TextSize = 11
     luckyCounter.Text = "Lucky Arrows: 0/10"
 
-    -- Current Item
     local itemLabel = Instance.new("TextLabel", mainFrame)
     itemLabel.Name = "ItemLabel"
     itemLabel.Size = UDim2.new(1, -10, 0, 18)
@@ -154,7 +147,6 @@ local function createMobileGUI()
     itemLabel.TextSize = 11
     itemLabel.Text = "Item: None"
 
-    -- Debug Info
     local debug = Instance.new("TextLabel", mainFrame)
     debug.Name = "Debug"
     debug.Size = UDim2.new(1, -10, 0, 40)
@@ -166,7 +158,6 @@ local function createMobileGUI()
     debug.Text = "Debug: Ready\nItems Found: 0"
     debug.TextWrapped = true
 
-    -- FARM TOGGLE
     local farmToggle = Instance.new("TextButton", mainFrame)
     farmToggle.Name = "FarmToggle"
     farmToggle.Size = UDim2.new(0.48, -3, 0, CONFIG.BUTTON_HEIGHT)
@@ -186,7 +177,6 @@ local function createMobileGUI()
         farmToggle.Text = "FARM: " .. (STATE.FarmingEnabled and "ON" or "OFF")
     end)
 
-    -- SPEED TOGGLE
     local speedToggle = Instance.new("TextButton", mainFrame)
     speedToggle.Name = "SpeedToggle"
     speedToggle.Size = UDim2.new(0.48, -3, 0, CONFIG.BUTTON_HEIGHT)
@@ -220,7 +210,6 @@ end
 
 local GUI = createMobileGUI()
 
--- ==================== UPDATE GUI ====================
 local function updateGUI(statusText, debugText, itemText)
     pcall(function()
         if GUI.status and statusText then
@@ -240,7 +229,6 @@ local function updateGUI(statusText, debugText, itemText)
     end)
 end
 
--- Update time display
 local function updateTimeDisplay()
     pcall(function()
         local elapsed = tick() - STATE.StartTime
@@ -251,14 +239,12 @@ local function updateTimeDisplay()
     end)
 end
 
--- Update lucky arrow counter
 local function updateLuckyArrowCounter()
     pcall(function()
         GUI.luckyCounter.Text = string.format("Lucky Arrows: %d/%d", STATE.LuckyArrowCount, CONFIG.LUCKY_ARROW_TARGET)
     end)
 end
 
--- ==================== COUNT LUCKY ARROWS ====================
 local function countLuckyArrows()
     pcall(function()
         local count = 0
@@ -280,16 +266,13 @@ local function countLuckyArrows()
     end)
 end
 
--- ==================== CHECK AUTO-STOP CONDITION ====================
 local function checkAutoStopCondition()
     countLuckyArrows()
-    
     local money = PlayerStats and PlayerStats.Money and PlayerStats.Money.Value or 0
     local hasEnoughMoney = money >= CONFIG.MONEY_THRESHOLD
     local hasEnoughArrows = STATE.LuckyArrowCount >= CONFIG.LUCKY_ARROW_TARGET
-    
-    -- Check if all items have been collected
     local allItemsCollected = true
+
     for _, item in ipairs(FARMABLE_ITEMS) do
         if STATE.ItemsCollected[item.name] == 0 then
             allItemsCollected = false
@@ -306,14 +289,12 @@ local function checkAutoStopCondition()
         print("✅ AUTO FARM STOPPED - Goal Reached!")
         print("💰 Money: $" .. math.floor(money))
         print("🎯 Lucky Arrows: " .. STATE.LuckyArrowCount)
-        print("📦 All items collected!")
         return true
     end
-    
+
     return false
 end
 
--- ==================== NOCLIP ====================
 RunService.Stepped:Connect(function()
     pcall(function()
         local char = Character()
@@ -327,7 +308,6 @@ RunService.Stepped:Connect(function()
     end)
 end)
 
--- ==================== TRACK ITEMS ====================
 local ItemFolder = Workspace:WaitForChild("Item_Spawns"):WaitForChild("Items")
 
 local function trackItem(itemModel)
@@ -338,16 +318,15 @@ local function trackItem(itemModel)
 
     if prompt and part and prompt.ObjectText and prompt.ObjectText ~= "" then
         local itemName = prompt.ObjectText
-        
-        -- Check if it's a farmable item
         local isFarmable = false
+
         for _, item in ipairs(FARMABLE_ITEMS) do
             if item.name == itemName then
                 isFarmable = true
                 break
             end
         end
-        
+
         if isFarmable then
             table.insert(STATE.TrackedItems, {
                 model = itemModel,
@@ -368,11 +347,10 @@ for _, item in ipairs(ItemFolder:GetChildren()) do
 end
 
 ItemFolder.ChildAdded:Connect(function(item)
-    task.wait(0.1)
+    task.wait(0.2)
     trackItem(item)
 end)
 
--- ==================== TELEPORT ====================
 local function instantTeleport(cframe)
     pcall(function()
         local hrp = HRP()
@@ -382,17 +360,15 @@ local function instantTeleport(cframe)
     end)
 end
 
--- ==================== HOLD E ====================
 local function holdE(duration)
     local pickupTime = STATE.SpeedModeEnabled and CONFIG.FAST_PICKUP_DELAY or CONFIG.NORMAL_PICKUP_DELAY
     pcall(function()
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-        task.wait(pickupTime)
+        task.wait(pickupTime + RNG(0.05, 0.3))
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
     end)
 end
 
--- ==================== PICKUP ITEM ====================
 local function pickupItem(item)
     STATE.IsFarming = true
     updateGUI("Farming", "Teleporting...", item.name)
@@ -400,11 +376,11 @@ local function pickupItem(item)
     pcall(function()
         local hrp = HRP()
         if hrp and item and item.position then
-            hrp.CFrame = CFrame.new(item.position + Vector3.new(0, 3, 0))
+            hrp.CFrame = CFrame.new(item.position + Vector3.new(RNG(-1, 1), 3, RNG(-1, 1)))
         end
     end)
 
-    task.wait(0.05)
+    task.wait(0.25 + RNG(0.05, 0.25))
     updateGUI("Picking", "Holding E", item.name)
     holdE(0.25)
 
@@ -414,14 +390,11 @@ local function pickupItem(item)
         end
     end)
 
-    -- Track collected item
     STATE.ItemsCollected[item.name] = (STATE.ItemsCollected[item.name] or 0) + 1
-
-    task.wait(CONFIG.STAY_TIME_UNDER_ITEM)
+    task.wait(CONFIG.STAY_TIME_UNDER_ITEM + RNG(0.1, 0.6))
     STATE.IsFarming = false
 end
 
--- ==================== QUICK SELL ====================
 local function quickSell()
     pcall(function()
         local char = Character()
@@ -429,14 +402,14 @@ local function quickSell()
         if not hum then return end
 
         hum:UnequipTools()
-        task.wait(0.1)
+        task.wait(0.3 + RNG(0.1, 0.5))
 
         for _, tool in ipairs(Player.Backpack:GetChildren()) do
             if tool:IsA("Tool") and not string.find(tool.Name, "Lucky Arrow") then
                 hum:EquipTool(tool)
-                local timeout = tick() + 1
+                local timeout = tick() + 1.5
                 repeat
-                    task.wait(0.1)
+                    task.wait(0.2)
                 until char:FindFirstChild(tool.Name) or tick() > timeout
 
                 if char:FindFirstChild(tool.Name) then
@@ -445,7 +418,7 @@ local function quickSell()
                         Dialogue = "Dialogue5",
                         Option = "Option2"
                     })
-                    task.wait(0.3)
+                    task.wait(0.5 + RNG(0.1, 0.4))
                     updateGUI("Selling", "Sold: " .. tool.Name, nil)
                 end
             end
@@ -453,21 +426,19 @@ local function quickSell()
     end)
 end
 
--- ==================== BUY LUCKY ARROW ====================
 local function buyLucky()
     pcall(function()
         if PlayerStats and PlayerStats.Money and PlayerStats.Money.Value >= CONFIG.LUCKY_ARROW_PRICE then
             if STATE.LuckyArrowCount < CONFIG.LUCKY_ARROW_TARGET then
                 Character().RemoteEvent:FireServer("PurchaseShopItem", { ItemName = CONFIG.LUCKY_ARROW_NAME })
                 updateGUI("Buying", "Lucky Arrow Bought!", nil)
-                task.wait(0.5)
+                task.wait(0.8 + RNG(0.1, 0.5))
                 countLuckyArrows()
             end
         end
     end)
 end
 
--- ==================== FIND CLOSEST ITEM ====================
 local function getClosestItem()
     local closest, minDist
     pcall(function()
@@ -485,20 +456,16 @@ local function getClosestItem()
     return closest
 end
 
--- ==================== MAIN FARM LOOP ====================
 task.spawn(function()
     while true do
-        task.wait(0.5)
-        
-        -- Update displays
+        task.wait(0.8)
         updateTimeDisplay()
         countLuckyArrows()
-        
-        -- Check auto-stop condition
+
         if checkAutoStopCondition() then
             break
         end
-        
+
         if not STATE.FarmingEnabled then
             updateGUI("Paused", "Farming disabled", nil)
             continue
@@ -510,7 +477,6 @@ task.spawn(function()
             table.remove(STATE.TrackedItems, closest)
             pickupItem(item)
         else
-            -- Only buy lucky arrows if under target
             if STATE.LuckyArrowCount < CONFIG.LUCKY_ARROW_TARGET then
                 quickSell()
                 buyLucky()
@@ -522,7 +488,6 @@ task.spawn(function()
     end
 end)
 
--- ==================== AUTO-REJOIN ON DISCONNECT ====================
 Player.CharacterAdded:Connect(function()
     print("✅ Rejoined game! Restarting farm...")
     task.wait(2)
@@ -531,7 +496,6 @@ Player.CharacterAdded:Connect(function()
     end
 end)
 
--- ==================== PANIC KEY (P) ====================
 UserInputService.InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.P then
         updateGUI("PANIC!", "Teleporting to safe spot!", nil)
@@ -539,10 +503,9 @@ UserInputService.InputBegan:Connect(function(input)
     end
 end)
 
--- ==================== SERVER HOP LOOP ====================
 task.spawn(function()
     while true do
-        task.wait(CONFIG.SERVER_HOP_DELAY)
+        task.wait(CONFIG.SERVER_HOP_DELAY + RNG(10, 30))
         if not STATE.IsFarming and STATE.FarmingEnabled and not STATE.IsAutoStopped then
             updateGUI("ServerHop", "Switching servers...", nil)
             pcall(function()
@@ -565,7 +528,6 @@ task.spawn(function()
     end
 end)
 
--- ==================== GRAPHICS OPTIMIZATION ====================
 task.spawn(function()
     task.wait(2)
     pcall(function()
