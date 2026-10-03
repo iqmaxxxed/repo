@@ -1,6 +1,6 @@
--- YBA FARM MOBILE LOADER V2
+-- YBA FARM MOBILE LOADER V3
 -- One-Click Loader for Arceus X, Delta, CodeX
--- Auto-download, cache, and execute
+-- Auto-download, cache, and execute - MOBILE OPTIMIZED
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -10,7 +10,8 @@ local CONFIG = {
     SCRIPT_URL = "https://raw.githubusercontent.com/iqmaxxxed/repo/main/farm.lua",
     CACHE_FILE = "yba_farm_cache.lua",
     TIMEOUT = 10,
-    RETRY_COUNT = 3
+    RETRY_COUNT = 3,
+    MOBILE_MODE = true
 }
 
 -- Check if executor supports caching
@@ -79,11 +80,51 @@ local function downloadScript()
     return nil, lastError
 end
 
+-- Mobile-optimized notification
+local function notifyMobile(title, message)
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    
+    if LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui") then
+        local notification = Instance.new("ScreenGui")
+        notification.Name = "MobileNotification"
+        notification.ResetOnSpawn = false
+        notification.Parent = LocalPlayer:FindFirstChild("PlayerGui")
+        
+        local bg = Instance.new("Frame", notification)
+        bg.Size = UDim2.new(1, 0, 0, 60)
+        bg.Position = UDim2.new(0, 0, 0, 0)
+        bg.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+        bg.BorderSizePixel = 0
+        
+        local titleLabel = Instance.new("TextLabel", bg)
+        titleLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        titleLabel.Text = title
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+        titleLabel.TextSize = 16
+        titleLabel.Font = Enum.Font.GothamBold
+        
+        local msgLabel = Instance.new("TextLabel", bg)
+        msgLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        msgLabel.Position = UDim2.new(0, 0, 0.5, 0)
+        msgLabel.Text = message
+        msgLabel.BackgroundTransparency = 1
+        msgLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        msgLabel.TextSize = 12
+        msgLabel.Font = Enum.Font.Gotham
+        
+        game:GetService("Debris"):AddItem(notification, 3)
+    end
+end
+
 -- Main loader function
 local function loadFarm()
     print("=" .. string.rep("=", 48) .. "=")
-    print("🚀 YBA Complete Autofarm V2 - Mobile Loader")
+    print("🚀 YBA Complete Autofarm - Mobile Loader V3")
     print("=" .. string.rep("=", 48) .. "=")
+    
+    notifyMobile("YBA Farm Loader", "Initializing...")
     
     -- Step 1: Try to load from cache
     local scriptContent = loadFromCache()
@@ -96,6 +137,7 @@ local function loadFarm()
             print("❌ FATAL: Could not download or load script!")
             print("⚙️ Make sure your internet is working")
             print("⚙️ Check if the repo URL is correct")
+            notifyMobile("❌ ERROR", "Failed to download script")
             return false
         end
         
@@ -105,6 +147,8 @@ local function loadFarm()
     
     -- Step 3: Execute the script
     print("⚡ Executing farm script...")
+    notifyMobile("Loading", "Executing script...")
+    
     local success, result = pcall(function()
         local fn = loadstring(scriptContent)
         if not fn then
@@ -117,10 +161,12 @@ local function loadFarm()
         print("=" .. string.rep("=", 48) .. "=")
         print("✅ FARM LOADER COMPLETE - Script is running!")
         print("=" .. string.rep("=", 48) .. "=")
+        notifyMobile("✅ SUCCESS", "Farm script loaded!")
         return true
     else
         print("❌ Execution error: " .. tostring(result))
         print("=" .. string.rep("=", 48) .. "=")
+        notifyMobile("❌ ERROR", "Script execution failed")
         return false
     end
 end
